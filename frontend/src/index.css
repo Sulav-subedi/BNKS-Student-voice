@@ -1,0 +1,97 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@300;400;600;700&family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.logo{
+    width: 130px;
+    height: 130px;
+}
+
+body {
+    margin: 0;
+    font-family: 'Public Sans', Inter, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background: hsl(40, 20%, 98%);
+}
+
+code {
+    font-family: 'JetBrains Mono', monospace;
+}
+
+@layer base {
+    :root {
+        --background: 40 20% 98%;
+        --foreground: 222 47% 15%;
+        --card: 0 0% 100%;
+        --card-foreground: 222 47% 15%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 222 47% 15%;
+        --primary: 222 47% 31%;
+        --primary-foreground: 0 0% 98%;
+        --secondary: 140 20% 35%;
+        --secondary-foreground: 0 0% 98%;
+        --muted: 220 10% 96%;
+        --muted-foreground: 220 10% 45%;
+        --accent: 35 80% 55%;
+        --accent-foreground: 0 0% 98%;
+        --destructive: 0 84.2% 60.2%;
+        --destructive-foreground: 0 0% 98%;
+        --border: 40 15% 85%;
+        --input: 40 15% 85%;
+        --ring: 222 47% 31%;
+        --radius: 0.75rem;
+    }
+}
+
+@layer base {
+    * {
+        border-color: hsl(var(--border));
+    }
+    body {
+        background-color: hsl(var(--background));
+        color: hsl(var(--foreground));
+    }
+    h1, h2, h3, h4, h5, h6 {
+        font-family: 'Fraunces', 'DM Serif Display', serif;
+    }
+}
+
+@layer utilities {
+    .grain-texture {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='3' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.03'/%3E%3C/svg%3E");
+    }
+}
+
+@layer base {
+    [data-debug-wrapper="true"] {
+        display: contents !important;
+    }
+
+    [data-debug-wrapper="true"] > * {
+        margin-left: inherit;
+        margin-right: inherit;
+        margin-top: inherit;
+        margin-bottom: inherit;
+        padding-left: inherit;
+        padding-right: inherit;
+        padding-top: inherit;
+        padding-bottom: inherit;
+        column-gap: inherit;
+        row-gap: inherit;
+        gap: inherit;
+        border-left-width: inherit;
+        border-right-width: inherit;
+        border-top-width: inherit;
+        border-bottom-width: inherit;
+        border-left-style: inherit;
+        border-right-style: inherit;
+        border-top-style: inherit;
+        border-bottom-style: inherit;
+        border-left-color: inherit;
+        border-right-color: inherit;
+        border-top-color: inherit;
+        border-bottom-color: inherit;
+    }
+}
