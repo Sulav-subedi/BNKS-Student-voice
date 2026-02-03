@@ -236,10 +236,5 @@ Main endpoints include:
 
 This project is licensed under the ISC License.
 
-## 📞 Support
-
-For support and questions, please contact the development team or create an issue in the repository.
-
----
 
 **Note**: This is a feedback system specifically designed for Budhanilkantha School. Make sure to configure the environment variables appropriately for your deployment environment.
