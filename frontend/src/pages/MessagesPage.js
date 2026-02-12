@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
-import { ArrowLeft, Search, Send, MoreVertical, Phone, Video, Info, Smile, Paperclip } from 'lucide-react';
+import { ArrowLeft, Search, Send, MoreVertical, Phone, Video, Info, Smile, Paperclip, Users } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL + '/api';
 
@@ -18,6 +18,8 @@ const MessagesPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [showSearch, setShowSearch] = useState(false);
+  const [showSpecialAccounts, setShowSpecialAccounts] = useState(false);
+  const [specialAccounts, setSpecialAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const messagesEndRef = useRef(null);
@@ -169,12 +171,33 @@ const MessagesPage = () => {
       
       setSelectedConversation(response.data);
       setShowSearch(false);
+      setShowSpecialAccounts(false);
       setSearchQuery('');
       setSearchResults([]);
       fetchMessages(response.data.id);
       fetchConversations();
     } catch (error) {
       toast.error('Failed to start conversation');
+    }
+  };
+
+  const fetchSpecialAccounts = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/users/special-accounts`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setSpecialAccounts(response.data);
+    } catch (error) {
+      console.error('Failed to fetch special accounts:', error);
+      toast.error('Failed to load special accounts');
+    }
+  };
+
+  const handleShowSpecialAccounts = () => {
+    setShowSpecialAccounts(!showSpecialAccounts);
+    setShowSearch(false);
+    if (!showSpecialAccounts) {
+      fetchSpecialAccounts();
     }
   };
 
@@ -213,12 +236,24 @@ const MessagesPage = () => {
           </button>
           <h1 className="text-xl font-semibold">Messages</h1>
         </div>
-        <button
-          onClick={() => setShowSearch(!showSearch)}
-          className="p-2 hover:bg-green-700 rounded-lg transition-colors"
-        >
-          <Search className="w-5 h-5" />
-        </button>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={handleShowSpecialAccounts}
+            className="p-2 hover:bg-green-700 rounded-lg transition-colors"
+            title="View all teachers and staff"
+          >
+            <Users className="w-5 h-5" />
+          </button>
+          <button
+            onClick={() => {
+              setShowSearch(!showSearch);
+              setShowSpecialAccounts(false);
+            }}
+            className="p-2 hover:bg-green-700 rounded-lg transition-colors"
+          >
+            <Search className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       {/* Search Bar */}
@@ -228,7 +263,7 @@ const MessagesPage = () => {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
               type="text"
-              placeholder="Search users..."
+              placeholder="Search users by username or name..."
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
@@ -246,16 +281,67 @@ const MessagesPage = () => {
                   <div className="flex items-center space-x-3">
                     <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
                       <span className="text-sm font-semibold">
-                        {searchUser.anonymous_tag.split('-')[0].match(/[A-Z]/g)?.slice(0, 2).join('') || 'AN'}
+                        {searchUser.username ? searchUser.username.substring(0, 2).toUpperCase() : searchUser.anonymous_tag.split('-')[0].match(/[A-Z]/g)?.slice(0, 2).join('') || 'AN'}
                       </span>
                     </div>
                     <div>
-                      <p className="font-semibold text-gray-900">{searchUser.anonymous_tag}</p>
-                      <p className="text-sm text-gray-500">User</p>
+                      <p className="font-semibold text-gray-900">
+                        {searchUser.username || searchUser.anonymous_tag}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        {searchUser.role} {searchUser.username && `• @${searchUser.username}`}
+                      </p>
                     </div>
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Special Accounts List */}
+      {showSpecialAccounts && (
+        <div className="bg-white border-b border-gray-200 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold text-gray-900">Teachers & Staff</h3>
+            <button
+              onClick={() => setShowSpecialAccounts(false)}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              ×
+            </button>
+          </div>
+          
+          {specialAccounts.length > 0 ? (
+            <div className="max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-lg">
+              {specialAccounts.map((account) => (
+                <div
+                  key={account.id}
+                  onClick={() => handleStartConversation(account)}
+                  className="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                      <span className="text-sm font-semibold text-green-700">
+                        {account.username.substring(0, 2).toUpperCase()}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-900">
+                        {account.username}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        {account.role} • Click to message
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-4 text-gray-500">
+              <p>No teacher or staff accounts found</p>
             </div>
           )}
         </div>

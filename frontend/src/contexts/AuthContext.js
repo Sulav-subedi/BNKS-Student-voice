@@ -41,8 +41,14 @@ export const AuthProvider = ({ children }) => {
     return userData;
   };
 
-  const register = async (name, email, password, role) => {
-    const response = await axios.post(`${API_URL}/auth/register`, { name, email, password, role });
+  const register = async (name, email, password, role, special_code = null, username = null) => {
+    const requestData = { name, email, password, role };
+    if (role !== 'Student' && special_code && username) {
+      requestData.special_code = special_code;
+      requestData.username = username;
+    }
+    
+    const response = await axios.post(`${API_URL}/auth/register`, requestData);
     const { token: newToken, user: userData } = response.data;
     localStorage.setItem('token', newToken);
     setToken(newToken);

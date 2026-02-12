@@ -22,7 +22,7 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-app = FastAPI()
+app = FastAPI() 
 api_router = APIRouter(prefix="/api")
 
 JWT_SECRET = os.environ.get('JWT_SECRET', 'your-secret-key-change-in-production')
@@ -69,11 +69,21 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail='Invalid token')
 
+# Special codes for teacher/staff registration
+TEACHER_STAFF_CODES = {
+    'TEACHER2027': 'Teacher',
+    'STAFF2027': 'Staff',
+    'BNKS2027': 'Teacher',
+    'ADMIN2027': 'Staff'
+}
+
 class UserRegister(BaseModel):
     name: str
     email: EmailStr
     password: str
     role: Literal['Student', 'Teacher', 'Staff']
+    special_code: Optional[str] = None
+    username: Optional[str] = None
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -86,6 +96,7 @@ class User(BaseModel):
     email: str
     role: str
     anonymous_tag: str
+    username: Optional[str] = None
     created_at: str
 
 class PostCreate(BaseModel):
@@ -161,6 +172,25 @@ async def register(data: UserRegister):
             print("Email already registered")
             raise HTTPException(status_code=400, detail='Email already registered')
         
+        # Validate special code for teacher/staff roles
+        if data.role in ['Teacher', 'Staff']:
+            if not data.special_code:
+                raise HTTPException(status_code=400, detail='Special code required for teacher/staff registration')
+            
+            if data.special_code not in TEACHER_STAFF_CODES:
+                raise HTTPException(status_code=401, detail='Invalid special code')
+            
+            if TEACHER_STAFF_CODES[data.special_code] != data.role:
+                raise HTTPException(status_code=401, detail='Special code does not match selected role')
+            
+            # Check if username already exists for teacher/staff
+            if not data.username:
+                raise HTTPException(status_code=400, detail='Username required for teacher/staff accounts')
+            
+            existing_username = await db.users.find_one({'username': data.username}, {'_id': 0})
+            if existing_username:
+                raise HTTPException(status_code=400, detail='Username already taken')
+        
         print("Hashing password...")
         hashed_password = bcrypt.hashpw(data.password.encode('utf-8'), bcrypt.gensalt())
         
@@ -177,6 +207,10 @@ async def register(data: UserRegister):
             'created_at': datetime.now(timezone.utc).isoformat()
         }
         
+        # Add username for teacher/staff accounts
+        if data.role in ['Teacher', 'Staff'] and data.username:
+            user_doc['username'] = data.username
+        
         print("Inserting user...")
         await db.users.insert_one(user_doc)
         
@@ -192,6 +226,7 @@ async def register(data: UserRegister):
                 email=data.email,
                 role=data.role,
                 anonymous_tag=anonymous_tag,
+                username=data.username if data.role in ['Teacher', 'Staff'] else None,
                 created_at=user_doc['created_at']
             )
         }
@@ -218,6 +253,7 @@ async def login(data: UserLogin):
             email=user['email'],
             role=user['role'],
             anonymous_tag=user['anonymous_tag'],
+            username=user.get('username'),
             created_at=user['created_at']
         )
     }
@@ -539,22 +575,67 @@ async def search_users(q: str, current_user: dict = Depends(get_current_user)):
                 {'id': {'$ne': current_user['id']}},
                 {'$or': [
                     {'anonymous_tag': {'$regex': q, '$options': 'i'}},
-                    {'name': {'$regex': q, '$options': 'i'}}
+                    {'name': {'$regex': q, '$options': 'i'}},
+                    {'username': {'$regex': q, '$options': 'i'}}  # Add username search for teacher/staff
                 ]}
             ]
         }, {'_id': 0, 'password': 0, 'email': 0}).to_list(20)
         
-        # Return users but only expose anonymous tag and id
-        return [{
-            'id': user['id'],
-            'name': user['anonymous_tag'],  # Show anonymous tag as the "name"
-            'anonymous_tag': user['anonymous_tag'],
-            'role': user['role'],
-            'created_at': user['created_at']
-        } for user in users]
+        # Return users with appropriate display names
+        result = []
+        for user in users:
+            if user.get('username') and user['role'] in ['Teacher', 'Staff']:
+                # For teacher/staff with username, show the username
+                result.append({
+                    'id': user['id'],
+                    'name': user['username'],  # Show username for teacher/staff
+                    'anonymous_tag': user['anonymous_tag'],
+                    'role': user['role'],
+                    'username': user.get('username'),
+                    'created_at': user['created_at']
+                })
+            else:
+                # For students, show anonymous tag
+                result.append({
+                    'id': user['id'],
+                    'name': user['anonymous_tag'],  # Show anonymous tag as the "name"
+                    'anonymous_tag': user['anonymous_tag'],
+                    'role': user['role'],
+                    'created_at': user['created_at']
+                })
+        
+        return result
     except Exception as e:
         print(f"Search error: {e}")
         raise HTTPException(status_code=500, detail=f'Search failed: {str(e)}')
+
+@api_router.get('/users/special-accounts')
+async def get_special_accounts(current_user: dict = Depends(get_current_user)):
+    try:
+        users = await db.users.find({
+            'role': {'$in': ['Teacher', 'Staff']},
+            'username': {'$exists': True, '$ne': None}
+        }, {'_id': 0, 'password': 0, 'email': 0}).to_list(100)
+        
+        # Return teacher/staff accounts with their usernames
+        result = []
+        for user in users:
+            result.append({
+                'id': user['id'],
+                'name': user['username'],  # Show username
+                'anonymous_tag': user['anonymous_tag'],
+                'role': user['role'],
+                'username': user.get('username'),
+                'created_at': user['created_at']
+            })
+        
+        # Sort by role then username
+        result.sort(key=lambda x: (x['role'], x['username']))
+        
+        return result
+    except Exception as e:
+        print(f"Get special accounts error: {e}")
+        raise HTTPException(status_code=500, detail=f'Failed to fetch special accounts: {str(e)}')
 
 app.include_router(api_router)
 
@@ -572,6 +653,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-@app.on_event('shutdown')
-async def shutdown_db_client():
-    client.close()
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
